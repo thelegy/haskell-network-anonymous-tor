@@ -1,0 +1,56 @@
+name: network-anonymous-tor
+version: 0.10.0
+license: MIT
+license-file: LICENSE
+copyright: (c) 2014 Leon Mergen
+author: Leon Mergen
+
+# extra-source-files:
+# - README.md
+
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+category: Network
+maintainer: leon@solatis.com
+stability: experimental
+synopsis: Haskell API for Tor anonymous networking
+description:
+  This library providess an API that wraps around the Tor control port
+  to create ad-hoc hidden services
+homepage: http://www.leonmergen.com/opensource.html
+github: solatis/haskell-network-anonymous-tor
+
+
+dependencies:
+- aeson
+- attoparsec
+- base >= 4.3 && < 5
+- base32string
+- base64-bytestring
+- bytestring
+- ed25519
+- exceptions
+- hexstring
+- network
+- network-attoparsec
+- network-simple
+- socks
+- text
+
+library:
+  source-dirs: src
+
+tests:
+  network-anonymous-tor-test:
+    main: Main.hs
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hspec
+    - hspec-attoparsec
+    - network-anonymous-tor

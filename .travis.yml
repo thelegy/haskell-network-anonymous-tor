@@ -1,74 +1,38 @@
-language: c
-env:
- - CABALVER=1.22 GHCVER=7.6.3
- - CABALVER=1.22 GHCVER=7.8.4
- - CABALVER=1.22 GHCVER=7.10.2
- - CABALVER=1.22 GHCVER=head
+# Choose a build environment
+dist: xenial
 
-matrix:
-  allow_failures:
-   - env: CABALVER=1.22 GHCVER=head
-    
+# Do not choose a language; we provide our own build tools.
+language: generic
+
+# Caching so the next build will be fast too.
+cache:
+  directories:
+  - $HOME/.stack
+
+# Ensure necessary system libraries are present
+addons:
+  apt:
+    packages:
+      - libgmp-dev
+      - tor  # Tor for tests
+
 before_install:
- - travis_retry sudo add-apt-repository -y ppa:hvr/ghc 
- - travis_retry sudo apt-get update
-
- - sudo apt-get install build-essential libevent-dev libssl-dev
- - wget https://www.torproject.org/dist/tor-0.2.7.1-alpha.tar.gz
- - tar -xzf tor-0.2.7.1-alpha.tar.gz
- - cd tor-0.2.7.1-alpha/
- - ./configure --disable-unittests --disable-system-torrc
- - make -j4
- - sudo make install
- - cd ..
-
-# Configure & launch tor service
- - echo "RunAsDaemon 1" >> ~/.torrc
- - echo "ControlPort 9051" >> ~/.torrc
- - echo "CookieAuthentication 1" >> ~/.torrc
- - echo "ExtORPortCookieAuthFileGroupReadable 1" >> ~/.torrc
- - tor 
-
+# Download and unpack the stack executable
+- mkdir -p ~/.local/bin
+- export PATH=$HOME/.local/bin:$PATH
+- travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | sudo tar xz --wildcards --strip-components=1 -C /usr/local/bin '*/stack'
+# Tor for tests
+- echo -e "ControlPort 9051\nCookieAuthentication 1\nExtORPortCookieAuthFileGroupReadable 1"| sudo tee /etc/tor/torrc
+- sudo systemctl restart tor
 # Wait until Tor control port is open
- - nc -zvv localhost 9051; out=$?; while [[ $out -ne 0 ]]; do echo "Retry hit port 9051..."; nc -zvv localhost 9051; out=$?; sleep 1; done
-
-# Installing cabal and ghc
- - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
- - export PATH=$HOME/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
- - travis_retry cabal update
-
-# Install hlint (via apt-get if available, otherwise via cabal)
- - travis_retry sudo apt-get -q -y install hlint || cabal install hlint
- 
-# Install hpc-coveralls
- - cabal install hpc-coveralls -j --bindir=$HOME/.cabal/bin/ --constraint='aeson >= 0.7'
- - which run-cabal-test
+- nc -zvv localhost 9051; out=$?; while [[ $out -ne 0 ]]; do echo "Retry hit port 9051..."; nc -zvv localhost 9051; out=$?; sleep 1; done
+- sudo gpasswd -a $USER debian-tor
 
 
 install:
- - cabal --version
- - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
- - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks -j
+# Build dependencies
+- stack --no-terminal --install-ghc test --only-dependencies
 
 script:
- - hlint src --ignore="Parse error"
- - cabal configure --enable-tests --enable-benchmarks --enable-coverage -fdebug 
- - cabal build -j
- - travis_retry sudo -E su $USER -c '/home/$USER/.cabal/bin/run-cabal-test --cabal-name=cabal --show-details=streaming'
- - cabal check
- - cabal sdist
- 
-# The following scriptlet checks that the resulting source distribution can be built & installed
- - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
-   cd dist/;
-   if [ -f "$SRC_TGZ" ]; then
-      cabal install --force-reinstalls "$SRC_TGZ";
-   else
-      echo "expected '$SRC_TGZ' not found";
-      exit 1;
-   fi ;
-   cd ../
-
-after_script:
- - find .
- - hpc-coveralls test-suite --exclude-dir=test --display-report
+# Build the package, its tests, and its docs and run the tests
+- sudo -E su $USER -c 'stack --no-terminal test --haddock --no-haddock-deps'
