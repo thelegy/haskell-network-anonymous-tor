@@ -33,7 +33,7 @@ import qualified Data.Base32String.Default                 as B32
 import qualified Data.ByteString                           as BS
 import qualified Data.ByteString.Char8                     as BS8
 import qualified Data.HexString                            as HS
-import           Data.Maybe                                (fromJust)
+import           Data.Maybe                                (fromJust, fromMaybe)
 
 import qualified Data.Text.Encoding                        as TE
 
@@ -148,7 +148,7 @@ socksPort :: MonadIO m
 socksPort s = do
   reply <- sendCommand s (BS8.pack "GETCONF SOCKSPORT\n")
   let line = fromJust $ Ast.line (BS8.pack "SocksPort") reply
-  let token = fromJust . Ast.tokenValue . head $ Ast.lineMessage line
+  let token = fromMaybe "9050" . Ast.tokenValue . head $ Ast.lineMessage line
   return . fst . fromJust . BS8.readInteger $ removeAddress token
   -- Removes the optional address: part from [address:]port strings
   where removeAddress str = if ':' `BS8.elem` str
