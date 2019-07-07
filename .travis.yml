@@ -21,16 +21,16 @@ before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+# Tor for tests
+- echo -e "ControlPort 9051\nCookieAuthentication 1\nExtORPortCookieAuthFileGroupReadable 1"| sudo tee /etc/tor/torrc
+- sudo systemctl restart tor
+# Wait until Tor control port is open
+- nc -zvv localhost 9051; out=$?; while [[ $out -ne 0 ]]; do echo "Retry hit port 9051..."; nc -zvv localhost 9051; out=$?; sleep 1; done
+
 
 install:
 # Build dependencies
 - stack --no-terminal --install-ghc test --only-dependencies
-# Tor for tests
-- echo -e "RunAsDaemon 1\nControlPort 9051\nCookieAuthentication 1\nExtORPortCookieAuthFileGroupReadable 1" >> ~/.torrc
-- tor -f $HOME/.torrc
-# Wait until Tor control port is open
-- nc -zvv localhost 9051; out=$?; while [[ $out -ne 0 ]]; do echo "Retry hit port 9051..."; nc -zvv localhost 9051; out=$?; sleep 1; done
-
 
 script:
 # Build the package, its tests, and its docs and run the tests
