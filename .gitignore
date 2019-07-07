@@ -10,3 +10,6 @@ cabal-dev
 .hpc/
 cabal.sandbox.config
 cabal.config
+/*.cabal
+/.stack-work
+*.lock
